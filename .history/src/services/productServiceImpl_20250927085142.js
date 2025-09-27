@@ -68,7 +68,7 @@ class ProductServiceImpl extends ProductService {
 
   async getVendorProducts(vendorId) {
     if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
+      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
     }
 
     const { data, error } = await supabaseService
@@ -83,7 +83,7 @@ class ProductServiceImpl extends ProductService {
 
   async deleteProduct(productId, vendorId) {
     if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
+      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
     }
 
     const { data, error } = await supabaseService

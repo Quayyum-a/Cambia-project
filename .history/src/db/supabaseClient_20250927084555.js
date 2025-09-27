@@ -28,3 +28,4 @@ if (!isConfigured) {
 
   module.exports = { supabaseAnon, supabaseService };
 }
+

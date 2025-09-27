@@ -1,40 +1,15 @@
-const ProductService = require('./productService');
+// services/impl/vendorServiceImpl.js
+const VendorService = require('./vendorService');
+const ProductService = require('./productServiceImpl');
+const Status = require('../models/Status');
 const { supabaseService } = require('../db/supabaseClient');
 
-function mapRowToProduct(row) {
-  return {
-    _id: row.id,
-    name: row.name,
-    description: row.description,
-    price: Number(row.price),
-    unit: row.unit,
-    quantityAvailable: row.quantity_available,
-    vendor: row.vendor_id,
-    createdAt: row.created_at,
-  };
-}
-
-class ProductServiceImpl extends ProductService {
-  async createProduct(vendorId, productData) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
-    }
-
-    const payload = {
-      vendor_id: vendorId,
-      name: productData.name,
-      description: productData.description || '',
-      price: productData.price,
-      unit: productData.unit,
-      quantity_available: productData.quantityAvailable ?? 0,
-    };
-
-    const { data, error } = await supabaseService.from('products').insert(payload).select('*').single();
-    if (error) throw new Error(error.message);
-    return mapRowToProduct(data);
+class VendorServiceImpl extends VendorService {
+  async addProduct(vendorId, productData) {
+    return await ProductService.createProduct(vendorId, productData);
   }
 
-  async updateStock(productId, newQuantity) {
+  async updateProductStock(vendorId, productId, newQuantity) {
     if (!supabaseService) {
       throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
     }
@@ -43,14 +18,15 @@ class ProductServiceImpl extends ProductService {
       .from('products')
       .update({ quantity_available: newQuantity })
       .eq('id', productId)
-      .select('*')
+      .eq('vendor_id', vendorId)
+      .select('id')
       .single();
 
     if (error) throw new Error(error.message);
-    return mapRowToProduct(data);
+    return await ProductService.updateStock(productId, newQuantity);
   }
 
-  async updatePrice(productId, newPrice) {
+  async updateProductPrice(vendorId, productId, newPrice) {
     if (!supabaseService) {
       throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
     }
@@ -59,44 +35,73 @@ class ProductServiceImpl extends ProductService {
       .from('products')
       .update({ price: newPrice })
       .eq('id', productId)
-      .select('*')
+      .eq('vendor_id', vendorId)
+      .select('id')
       .single();
 
     if (error) throw new Error(error.message);
-    return mapRowToProduct(data);
+    return await ProductService.updatePrice(productId, newPrice);
+  }
+
+  async deleteProduct(vendorId, productId) {
+    return await ProductService.deleteProduct(productId, vendorId);
   }
 
   async getVendorProducts(vendorId) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
-    }
-
-    const { data, error } = await supabaseService
-      .from('products')
-      .select('*')
-      .eq('vendor_id', vendorId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return data.map(mapRowToProduct);
+    return await ProductService.getVendorProducts(vendorId);
   }
 
-  async deleteProduct(productId, vendorId) {
+  async receiveOrder(vendorId, orderId) {
     if (!supabaseService) {
       throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
     }
 
     const { data, error } = await supabaseService
-      .from('products')
-      .delete()
-      .eq('id', productId)
+      .from('orders')
+      .update({ status: Status.RECEIVED })
+      .eq('id', orderId)
       .eq('vendor_id', vendorId)
       .select('*')
       .single();
 
     if (error) throw new Error(error.message);
-    return mapRowToProduct(data);
+    return { ...data, _id: data.id };
+  }
+
+  async prepareGoods(vendorId, orderId) {
+    if (!supabaseService) {
+      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
+    }
+
+    const { data, error } = await supabaseService
+      .from('orders')
+      .update({ status: Status.PREPARED })
+      .eq('id', orderId)
+      .eq('vendor_id', vendorId)
+      .select('*')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { ...data, _id: data.id };
+  }
+
+  async uploadProof(vendorId, orderId, proofCid) {
+    if (!supabaseService) {
+      throw new Error('Supabase not configured. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY environment variables in your deployment platform (Railway).');
+    }
+
+    const { data, error } = await supabaseService
+      .from('orders')
+      .update({ proof_of_packaging: proofCid, status: Status.PROOF_UPLOADED })
+      .eq('id', orderId)
+      .eq('vendor_id', vendorId)
+      .select('*')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { ...data, _id: data.id };
   }
 }
 
-module.exports = new ProductServiceImpl();
+module.exports = new VendorServiceImpl();
+
