@@ -1,0 +1,265 @@
+# Cambia Marketplace - Deployment Guide
+
+## Overview
+Cambia is a full-stack marketplace application built with React (frontend) and Node.js/Express (backend), featuring Sui blockchain integration for secure escrow payments.
+
+## Architecture
+- **Frontend**: React + Vite, Tailwind CSS, React Router
+- **Backend**: Node.js + Express, JWT authentication
+- **Database**: Supabase (production) / In-memory (demo)
+- **Blockchain**: Sui Network for escrow contracts
+- **Deployment**: Netlify (frontend) + Railway/Heroku (backend)
+
+## Quick Deployment Options
+
+### Option 1: Netlify (Frontend) + Railway (Backend) - Recommended
+
+#### Backend Deployment (Railway)
+1. **Connect Repository**
+   - Go to [Railway.app](https://railway.app)
+   - Connect your GitHub repository
+   - Railway will auto-detect Node.js app
+
+2. **Environment Variables**
+   ```bash
+   JWT_SECRET=your-super-secret-jwt-key-here
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUI_NETWORK=testnet
+   NODE_ENV=production
+   ```
+
+3. **Database Setup**
+   - Railway provides PostgreSQL by default
+   - Or configure external Supabase instance
+
+#### Frontend Deployment (Netlify)
+1. **Connect Repository**
+   - Go to [Netlify.com](https://netlify.com)
+   - Connect GitHub repository
+   - Set build command: `npm run build`
+   - Set publish directory: `dist`
+
+2. **Environment Variables**
+   ```bash
+   VITE_API_URL=https://your-railway-backend-url
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+3. **Build Settings**
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+   - Add `_redirects` file in `public/` folder:
+     ```
+     /*    /index.html   200
+     ```
+
+### Option 2: Vercel (Frontend + Backend)
+
+#### Deploy to Vercel
+1. **Connect Repository**
+   - Go to [Vercel.com](https://vercel.com)
+   - Import GitHub repository
+
+2. **Configure Project**
+   - Frontend: `frontend/` directory
+   - Backend: Root directory (API routes)
+   - Set environment variables as above
+
+### Option 3: Docker Deployment
+
+#### Build Docker Images
+```bash
+# Backend
+docker build -t cambia-backend .
+
+# Frontend
+cd frontend
+docker build -t cambia-frontend .
+```
+
+#### Docker Compose (Full Stack)
+```yaml
+version: '3.8'
+services:
+  backend:
+    image: cambia-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=your-secret
+    depends_on:
+      - db
+
+  frontend:
+    image: cambia-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=cambia
+      - POSTGRES_USER=cambia
+      - POSTGRES_PASSWORD=password
+```
+
+## Environment Configuration
+
+### Required Environment Variables
+
+#### Backend (.env)
+```bash
+# Server
+PORT=3001
+NODE_ENV=production
+
+# Authentication
+JWT_SECRET=your-super-secure-jwt-secret-here
+
+# Database (Supabase)
+USE_SUPABASE=true
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Sui Blockchain
+SUI_NETWORK=mainnet
+SUI_RPC_URL=https://fullnode.mainnet.sui.io:443
+
+# Email (optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+#### Frontend (.env)
+```bash
+VITE_API_URL=https://your-backend-url
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SENTRY_DSN=your-sentry-dsn (optional)
+```
+
+## Database Setup
+
+### Supabase Configuration
+1. Create project at [Supabase.com](https://supabase.com)
+2. Run migrations from `src/db/migrations/`
+3. Configure Row Level Security (RLS) policies
+4. Set up authentication providers
+
+### Tables Required
+- `users` - User accounts
+- `products` - Product listings
+- `orders` - Order records
+- `escrow_transactions` - Blockchain escrow data
+
+## Monitoring & Analytics
+
+### Error Monitoring (Sentry)
+```bash
+# Install Sentry
+npm install @sentry/react @sentry/tracing
+
+# Configure in main.jsx
+import * as Sentry from "@sentry/react";
+Sentry.init({
+  dsn: "your-sentry-dsn",
+  integrations: [new Sentry.BrowserTracing()],
+  tracesSampleRate: 1.0,
+});
+```
+
+### Analytics (Google Analytics)
+```javascript
+// Add to index.html
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+```
+
+## Performance Optimization
+
+### Frontend
+- Enable gzip compression
+- Set proper cache headers
+- Use CDN for static assets
+- Implement code splitting
+
+### Backend
+- Enable gzip compression
+- Set up database connection pooling
+- Implement rate limiting
+- Add request logging
+
+## Security Checklist
+
+- [ ] HTTPS enabled
+- [ ] Environment variables secured
+- [ ] Database credentials protected
+- [ ] CORS properly configured
+- [ ] Input validation implemented
+- [ ] Authentication middleware active
+- [ ] Rate limiting configured
+- [ ] Error messages sanitized
+
+## Testing Deployment
+
+### Health Checks
+```bash
+# Backend health
+curl https://your-backend-url/health
+
+# Frontend load test
+curl https://your-frontend-url
+```
+
+### Demo Data
+Run seed script for initial data:
+```bash
+npm run seed
+```
+
+## Troubleshooting
+
+### Common Issues
+1. **Build Failures**: Check Node.js version compatibility
+2. **Environment Variables**: Ensure all required vars are set
+3. **Database Connection**: Verify Supabase credentials
+4. **CORS Errors**: Check backend CORS configuration
+
+### Logs
+- Railway: View logs in dashboard
+- Netlify: Check build/deploy logs
+- Vercel: Access function logs
+
+## Cost Estimation
+
+### Free Tier
+- **Netlify**: 100GB bandwidth/month
+- **Railway**: $5/month for hobby plan
+- **Supabase**: 500MB database, 50MB file storage
+
+### Production Costs
+- **Railway**: $10-50/month depending on usage
+- **Supabase**: $25-200/month based on scale
+- **Netlify**: $19/month for pro plan
+
+## Maintenance
+
+### Regular Tasks
+- Monitor error logs
+- Update dependencies monthly
+- Backup database weekly
+- Review performance metrics
+- Update SSL certificates
+
+### Scaling Considerations
+- Database read replicas for high traffic
+- CDN for global distribution
+- Load balancer for multiple instances
+- Redis for session/caching
