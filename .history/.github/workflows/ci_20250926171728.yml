@@ -13,11 +13,4 @@ jobs:
         with:
           node-version: 18
       - run: npm ci || npm install
-      - name: Run tests in demo mode
-        run: |
-          export USE_SUPABASE=false
-          export NODE_ENV=test
-          npm test
-        env:
-          USE_SUPABASE: false
-          NODE_ENV: test
+      - run: npm test

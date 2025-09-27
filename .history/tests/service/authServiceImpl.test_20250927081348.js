@@ -65,17 +65,14 @@ describe('Authentication service tests', () => {
     beforeEach(async() => {
         authService = new AuthServiceImpl();
         jest.clearAllMocks();
-
+        
         bcrypt.hash.mockResolvedValue('hashedPassword');
         bcrypt.compare.mockResolvedValue(true);
         uuidv4.mockReturnValue('generated-uuid');
 
-        // In demo mode, we don't need to clean up database
-        if (process.env.USE_SUPABASE !== 'false') {
-            await User.deleteMany({}).exec();
-            await Sender.deleteMany({}).exec();
-            await Vendor.deleteMany({}).exec();
-        }
+        await User.deleteMany({}).exec();
+        await Sender.deleteMany({}).exec();
+        await Vendor.deleteMany({}).exec();
     });
 
     describe("register user", () => {
@@ -108,12 +105,19 @@ describe('Authentication service tests', () => {
     });
 
     test('should throw error for duplicate email', async () => {
-        // First registration should succeed
-        await authService.register(senderData);
-
-        // Second registration with same email should fail
-        await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
-    });
+        await Sender.create({
+            email: senderData.email,
+            password: 'hashedPassword',
+            walletAddress: senderData.walletAddress,
+            role: senderData.role,
+            firstName: senderData.firstName,
+            lastName: senderData.lastName,
+            phone: senderData.phone,
+            address: senderData.address,
+          });
+    
+          await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
+        });
 
     });
 

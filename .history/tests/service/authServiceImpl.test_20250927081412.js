@@ -108,12 +108,19 @@ describe('Authentication service tests', () => {
     });
 
     test('should throw error for duplicate email', async () => {
-        // First registration should succeed
-        await authService.register(senderData);
-
-        // Second registration with same email should fail
-        await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
-    });
+        await Sender.create({
+            email: senderData.email,
+            password: 'hashedPassword',
+            walletAddress: senderData.walletAddress,
+            role: senderData.role,
+            firstName: senderData.firstName,
+            lastName: senderData.lastName,
+            phone: senderData.phone,
+            address: senderData.address,
+          });
+    
+          await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
+        });
 
     });
 

@@ -50,12 +50,8 @@ describe('Authentication service tests', () => {
 
     beforeAll(async() => {
         process.env.NODE_ENV = 'test';
-        process.env.USE_SUPABASE = 'false'; // Force demo mode for tests
-        // Skip database connection in demo mode
-        if (process.env.USE_SUPABASE !== 'false') {
-            await connectDB();
-            console.log('Connected to persistent test DB for manual inspection.');
-        }
+        await connectDB();
+        console.log('Connected to persistent test DB for manual inspection.');
     });
 
     afterAll(async () => {
@@ -65,17 +61,14 @@ describe('Authentication service tests', () => {
     beforeEach(async() => {
         authService = new AuthServiceImpl();
         jest.clearAllMocks();
-
+        
         bcrypt.hash.mockResolvedValue('hashedPassword');
         bcrypt.compare.mockResolvedValue(true);
         uuidv4.mockReturnValue('generated-uuid');
 
-        // In demo mode, we don't need to clean up database
-        if (process.env.USE_SUPABASE !== 'false') {
-            await User.deleteMany({}).exec();
-            await Sender.deleteMany({}).exec();
-            await Vendor.deleteMany({}).exec();
-        }
+        await User.deleteMany({}).exec();
+        await Sender.deleteMany({}).exec();
+        await Vendor.deleteMany({}).exec();
     });
 
     describe("register user", () => {
@@ -87,12 +80,12 @@ describe('Authentication service tests', () => {
         expect(result.status).toBe(true);
         expect(senderData.role).toBe("sender");
 
-        // In demo mode, check the in-memory storage
-        const authServiceInstance = new AuthServiceImpl();
-        // The demo users are stored in a Map, we can't directly access it
-        // but we can verify registration succeeded by checking the response
-        expect(result.status).toBe(true);
-        expect(result.message).toBe("User registered successfully");
+        const savedUser = await User.findOne({email: senderData.email});
+        expect(savedUser).toBeTruthy();
+        expect(savedUser.role).toBe("sender");
+
+        const savedSender = await Sender.findOne({ email: senderData.email})
+        expect(savedSender).toBeTruthy();
     });
 
         test("test should register vendor and return success", async() => {
@@ -102,18 +95,28 @@ describe('Authentication service tests', () => {
         expect(result.status).toBe(true);
         expect(vendorData.role).toBe("vendor");
 
-        // In demo mode, check the response
-        expect(result.status).toBe(true);
-        expect(result.message).toBe("User registered successfully");
+        const savedUser = await User.findOne({email: vendorData.email});
+        expect(savedUser).toBeTruthy();
+        expect(savedUser.role).toBe("vendor");
+
+        const savedVendor = await Vendor.findOne({ email: vendorData.email})
+        expect(savedVendor).toBeTruthy();
     });
 
     test('should throw error for duplicate email', async () => {
-        // First registration should succeed
-        await authService.register(senderData);
-
-        // Second registration with same email should fail
-        await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
-    });
+        await Sender.create({
+            email: senderData.email,
+            password: 'hashedPassword',
+            walletAddress: senderData.walletAddress,
+            role: senderData.role,
+            firstName: senderData.firstName,
+            lastName: senderData.lastName,
+            phone: senderData.phone,
+            address: senderData.address,
+          });
+    
+          await expect(authService.register(senderData)).rejects.toThrow('Email already exists');
+        });
 
     });
 
