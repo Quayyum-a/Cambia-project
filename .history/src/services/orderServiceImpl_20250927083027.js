@@ -107,19 +107,21 @@ class OrderServiceImpl extends OrderService {
   }
 
   async refund(orderId, reason = '') {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data, error } = await supabaseService
+        .from('orders')
+        .update({ status: Status.REFUNDED })
+        .eq('id', orderId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      return { ...data, _id: data.id };
     }
-
-    const { data, error } = await supabaseService
-      .from('orders')
-      .update({ status: Status.REFUNDED })
-      .eq('id', orderId)
-      .select('*')
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { ...data, _id: data.id };
+    const order = await Order.findById(orderId);
+    if (!order) throw new Error('Order not found');
+    order.status = Status.REFUNDED;
+    await order.save();
+    return order;
   }
 }
 

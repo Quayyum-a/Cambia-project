@@ -104,3 +104,4 @@ class VendorServiceImpl extends VendorService {
 }
 
 module.exports = new VendorServiceImpl();
+

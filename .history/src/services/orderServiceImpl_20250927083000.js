@@ -71,35 +71,56 @@ class OrderServiceImpl extends OrderService {
   }
 
   async verifyAndRelease(orderId, verifierPubKey, payload, signature) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data: order, error: errGet } = await supabaseService.from('orders').select('*').eq('id', orderId).single();
+      if (errGet || !order) throw new Error('Order not found');
+      if (!order.proof_of_packaging) throw new Error('No proof uploaded');
+      const ok = await verifyMessage(verifierPubKey, payload, signature);
+      if (!ok) throw new Error('Invalid verification signature');
+      const { data: updated, error: errUpd } = await supabaseService
+        .from('orders')
+        .update({ status: Status.VERIFIED, verified_by: verifierPubKey, verification_signature: signature })
+        .eq('id', orderId)
+        .select('*')
+        .single();
+      if (errUpd) throw new Error(errUpd.message);
+      try {
+        if (!updated.trustless_swap_id) throw new Error('Missing escrow id');
+        await releaseEscrow(updated.trustless_swap_id);
+        return { ...updated, _id: updated.id };
+      } catch (e) {
+        await supabaseService
+          .from('orders')
+          .update({ status: Status.PROOF_UPLOADED })
+          .eq('id', orderId);
+        const err = new Error('On-chain release failed: ' + e.message);
+        err.status = 502;
+        throw err;
+      }
     }
 
-    const { data: order, error: errGet } = await supabaseService.from('orders').select('*').eq('id', orderId).single();
-    if (errGet || !order) throw new Error('Order not found');
-    if (!order.proof_of_packaging) throw new Error('No proof uploaded');
+    const order = await Order.findById(orderId);
+    if (!order) throw new Error('Order not found');
+    if (!order.proofOfPackaging) throw new Error('No proof uploaded');
 
     const ok = await verifyMessage(verifierPubKey, payload, signature);
     if (!ok) throw new Error('Invalid verification signature');
 
-    const { data: updated, error: errUpd } = await supabaseService
-      .from('orders')
-      .update({ status: Status.VERIFIED, verified_by: verifierPubKey, verification_signature: signature })
-      .eq('id', orderId)
-      .select('*')
-      .single();
+    // Update state to verified first
+    order.verifiedBy = verifierPubKey;
+    order.verificationSignature = signature;
+    order.status = Status.VERIFIED;
+    await order.save();
 
-    if (errUpd) throw new Error(errUpd.message);
-
+    // Trigger on-chain release (best-effort with error handling)
     try {
-      if (!updated.trustless_swap_id) throw new Error('Missing escrow id');
-      await releaseEscrow(updated.trustless_swap_id);
-      return { ...updated, _id: updated.id };
+      if (!order.trustlessSwapID) throw new Error('Missing escrow id');
+      await releaseEscrow(order.trustlessSwapID);
+      return order;
     } catch (e) {
-      await supabaseService
-        .from('orders')
-        .update({ status: Status.PROOF_UPLOADED })
-        .eq('id', orderId);
+      // If chain call fails, revert status back to proof_uploaded and surface error
+      order.status = Status.PROOF_UPLOADED;
+      await order.save();
       const err = new Error('On-chain release failed: ' + e.message);
       err.status = 502;
       throw err;
@@ -107,19 +128,21 @@ class OrderServiceImpl extends OrderService {
   }
 
   async refund(orderId, reason = '') {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data, error } = await supabaseService
+        .from('orders')
+        .update({ status: Status.REFUNDED })
+        .eq('id', orderId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      return { ...data, _id: data.id };
     }
-
-    const { data, error } = await supabaseService
-      .from('orders')
-      .update({ status: Status.REFUNDED })
-      .eq('id', orderId)
-      .select('*')
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { ...data, _id: data.id };
+    const order = await Order.findById(orderId);
+    if (!order) throw new Error('Order not found');
+    order.status = Status.REFUNDED;
+    await order.save();
+    return order;
   }
 }
 

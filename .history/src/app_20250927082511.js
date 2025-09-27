@@ -55,7 +55,9 @@ app.use((err, _req, res, _next) => {
 
 // Start server if run directly
 if (require.main === module) {
-  app.listen(port, () => console.log(`API listening on :${port}`));
+  connectDB().then(() => {
+    app.listen(port, () => console.log(`API listening on :${port}`));
+  });
 }
 
 module.exports = app;

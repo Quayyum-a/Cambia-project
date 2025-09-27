@@ -52,54 +52,58 @@ class VendorServiceImpl extends VendorService {
   }
 
   async receiveOrder(vendorId, orderId) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data, error } = await supabaseService
+        .from('orders')
+        .update({ status: Status.RECEIVED })
+        .eq('id', orderId)
+        .eq('vendor_id', vendorId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      return { ...data, _id: data.id };
     }
-
-    const { data, error } = await supabaseService
-      .from('orders')
-      .update({ status: Status.RECEIVED })
-      .eq('id', orderId)
-      .eq('vendor_id', vendorId)
-      .select('*')
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { ...data, _id: data.id };
+    const order = await Order.findOne({ _id: orderId, vendorID: vendorId });
+    if (!order) throw new Error('Order not found or not assigned to vendor');
+    order.status = 'received';
+    return await order.save();
   }
 
   async prepareGoods(vendorId, orderId) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data, error } = await supabaseService
+        .from('orders')
+        .update({ status: Status.PREPARED })
+        .eq('id', orderId)
+        .eq('vendor_id', vendorId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      return { ...data, _id: data.id };
     }
-
-    const { data, error } = await supabaseService
-      .from('orders')
-      .update({ status: Status.PREPARED })
-      .eq('id', orderId)
-      .eq('vendor_id', vendorId)
-      .select('*')
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { ...data, _id: data.id };
+    const order = await Order.findOne({ _id: orderId, vendorID: vendorId });
+    if (!order) throw new Error('Order not found or not assigned to vendor');
+    order.status = 'prepared';
+    return await order.save();
   }
 
   async uploadProof(vendorId, orderId, proofCid) {
-    if (!supabaseService) {
-      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    if (useSupabase && supabaseService) {
+      const { data, error } = await supabaseService
+        .from('orders')
+        .update({ proof_of_packaging: proofCid, status: Status.PROOF_UPLOADED })
+        .eq('id', orderId)
+        .eq('vendor_id', vendorId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      return { ...data, _id: data.id };
     }
-
-    const { data, error } = await supabaseService
-      .from('orders')
-      .update({ proof_of_packaging: proofCid, status: Status.PROOF_UPLOADED })
-      .eq('id', orderId)
-      .eq('vendor_id', vendorId)
-      .select('*')
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { ...data, _id: data.id };
+    const order = await Order.findOne({ _id: orderId, vendorID: vendorId });
+    if (!order) throw new Error('Order not found or not assigned to vendor');
+    order.proofOfPackaging = proofCid;
+    order.status = 'proof_uploaded';
+    return await order.save();
   }
 }
 
